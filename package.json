@@ -1,6 +1,6 @@
 {
   "name": "claude-code-config-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "在多个 Claude Code 配置之间快速切换，自动管理本地代理的启停",
   "keywords": [
     "claude",

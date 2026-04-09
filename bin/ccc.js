@@ -2,12 +2,16 @@
 'use strict'
 
 const readline = require('readline')
+const fs = require('fs')
+const path = require('path')
+const { execSync, spawn } = require('child_process')
 const { discoverCccDir } = require('../lib/discovery')
 const { listConfigs, readConfigSettings } = require('../lib/configs')
 const { filterConfigs } = require('../lib/fuzzy')
 const { readState, isPidAlive } = require('../lib/state')
 const { applyConfig } = require('../lib/apply')
-const { error, dim, success, DIM, RESET, BOLD, GREEN, YELLOW, CYAN } = require('../lib/logger')
+const { getPaths } = require('../lib/paths')
+const { error, dim, info, warn, success, DIM, RESET, BOLD, GREEN, YELLOW, CYAN } = require('../lib/logger')
 
 async function main() {
   const args = process.argv.slice(2)
@@ -27,6 +31,17 @@ async function main() {
       break
     case 'use':
       await cmdUse(cccDir, rest[0], isDryRun)
+      break
+    case 'update':
+      await cmdUpdate()
+      break
+    case 'log':
+      cmdLog(cccDir)
+      break
+    case 'help':
+    case '--help':
+    case '-h':
+      printHelp()
       break
     default:
       error(`未知命令：${command}`)
@@ -93,6 +108,85 @@ function printConfigSummary(cccDir, state) {
   if (parts.length) console.log(`  ${DIM}›${RESET} ${parts.join(` ${DIM}·${RESET} `)}\n`)
 }
 
+async function cmdUpdate() {
+  const pkgPath = path.join(__dirname, '..', 'package.json')
+  const localPkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+  const currentVersion = localPkg.version
+  const pkgName = localPkg.name
+
+  info(`当前版本：${CYAN}v${currentVersion}${RESET}`)
+  info(`正在从 npm 安装最新版本…`)
+
+  try {
+    execSync(`npm install -g ${pkgName}`, { stdio: 'inherit' })
+  } catch {
+    error('安装失败，请检查 npm 权限或网络连接')
+    process.exit(1)
+  }
+
+  // 读取全局安装后的新版本
+  let newVersion = currentVersion
+  try {
+    const newVerRaw = execSync(`npm list -g --depth=0 --json ${pkgName}`, { encoding: 'utf8' })
+    const parsed = JSON.parse(newVerRaw)
+    newVersion = (parsed.dependencies || {})[pkgName]?.version || currentVersion
+  } catch {
+    // 忽略，无法获取新版本号时不影响流程
+  }
+
+  if (newVersion === currentVersion) {
+    success(`已是最新版本 ${GREEN}v${currentVersion}${RESET}`)
+  } else {
+    success(`已更新：${DIM}v${currentVersion}${RESET} → ${GREEN}v${newVersion}${RESET}`)
+  }
+}
+
+function cmdLog(cccDir) {
+  const state = readState(cccDir)
+  if (!state.active) {
+    warn('当前无激活配置，无法查看日志')
+    return
+  }
+
+  if (!state.proxyPid || !isPidAlive(state.proxyPid)) {
+    warn(`代理未运行，无日志可查看`)
+    dim(`配置：${state.active}`)
+    return
+  }
+
+  const logsDir = getPaths(cccDir).logsDir
+  if (!fs.existsSync(logsDir)) {
+    warn('日志目录不存在')
+    return
+  }
+
+  // 找到当前配置最新的日志文件
+  const prefix = `${state.active}-`
+  const files = fs.readdirSync(logsDir)
+    .filter((f) => f.startsWith(prefix) && f.endsWith('.log'))
+    .sort()
+
+  if (files.length === 0) {
+    warn(`未找到配置 "${state.active}" 的日志文件`)
+    return
+  }
+
+  const latestLog = path.join(logsDir, files[files.length - 1])
+  info(`${CYAN}${state.active}${RESET} 代理日志（Ctrl+C 退出）`)
+  dim(latestLog)
+  console.log()
+
+  // tail -f 实时追踪
+  const tail = spawn('tail', ['-f', latestLog], { stdio: 'inherit' })
+  tail.on('error', (e) => {
+    error(`无法启动 tail：${e.message}`)
+  })
+  process.on('SIGINT', () => {
+    tail.kill()
+    process.exit(0)
+  })
+}
+
 async function cmdUse(cccDir, query, isDryRun) {
   if (!query) {
     error('用法：ccc use <配置名>')
@@ -153,6 +247,9 @@ function printHelp() {
   list             列出所有配置
   status           查看当前激活的配置
   use <名称>       切换配置（支持模糊匹配）
+  log              实时查看当前代理日志（需代理运行中）
+  update           从 npm 更新到最新版本
+  help             显示此帮助信息
 
 选项：
   --dry-run        演练模式：不修改真实配置，代理端口 +10000
