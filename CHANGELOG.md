@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.0] - 2026-04-10
+
+### Added
+- `ccc save` — 将当前 `~/.claude/settings.json` 保存回激活配置，同步更新 last-applied 快照消除漂移标记
+
 ## [0.2.0] - 2026-04-09
 
 ### Added
