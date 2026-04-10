@@ -56,6 +56,7 @@ runtime/                # 自动创建
 ccc                    # 列出所有配置，标注当前激活 + 代理状态
 ccc status             # 当前配置名、代理 PID/端口/存活
 ccc use <query>        # 模糊切换，e.g. s2c → seed-2-0-code
+ccc save               # 将 ~/.claude/settings.json 保存回当前激活配置
 ccc use <query> --dry-run
 CCC_DRY_RUN=1 ccc use <query>
 ```

@@ -32,6 +32,9 @@ async function main() {
     case 'use':
       await cmdUse(cccDir, rest[0], isDryRun)
       break
+    case 'save':
+      cmdSave(cccDir)
+      break
     case 'update':
       await cmdUpdate()
       break
@@ -92,6 +95,32 @@ function cmdStatus(cccDir) {
     parts.push(isPidAlive(state.proxyPid) ? `${GREEN}代理运行中${RESET}` : `${YELLOW}代理已停止${RESET}`)
   }
   console.log(parts.join(sep))
+}
+
+function cmdSave(cccDir) {
+  const state = readState(cccDir)
+  if (!state.active) {
+    error('当前无激活配置，无法保存')
+    process.exit(1)
+  }
+
+  const paths = getPaths(cccDir, state.active)
+
+  if (!fs.existsSync(paths.claudeSettings)) {
+    error(`${paths.claudeSettings} 不存在`)
+    process.exit(1)
+  }
+
+  const content = fs.readFileSync(paths.claudeSettings, 'utf8')
+
+  // 写入 configs/<active>/settings.json
+  fs.writeFileSync(paths.configSettings, content, 'utf8')
+
+  // 同步 last-applied 快照，消除漂移标记
+  fs.mkdirSync(path.dirname(paths.lastAppliedSettings), { recursive: true })
+  fs.writeFileSync(paths.lastAppliedSettings, content, 'utf8')
+
+  success(`已保存到 ${CYAN}${state.active}${RESET}`)
 }
 
 // 配置摘要：在 list 和 use 完成后输出，提供关键上下文（不含代理，列表行已有）
@@ -247,6 +276,7 @@ function printHelp() {
   list             列出所有配置
   status           查看当前激活的配置
   use <名称>       切换配置（支持模糊匹配）
+  save             将当前 settings.json 保存回激活配置
   log              实时查看当前代理日志（需代理运行中）
   update           从 npm 更新到最新版本
   help             显示此帮助信息
