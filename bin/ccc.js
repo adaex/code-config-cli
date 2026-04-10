@@ -6,12 +6,12 @@ const fs = require('fs')
 const path = require('path')
 const { execSync, spawn } = require('child_process')
 const { discoverCccDir } = require('../lib/discovery')
-const { listConfigs, readConfigSettings } = require('../lib/configs')
+const { listConfigs, readConfigSettings, extractConfigSummary } = require('../lib/configs')
 const { filterConfigs } = require('../lib/fuzzy')
 const { readState, isPidAlive } = require('../lib/state')
 const { applyConfig } = require('../lib/apply')
 const { getPaths } = require('../lib/paths')
-const { error, dim, info, warn, success, DIM, RESET, BOLD, GREEN, YELLOW, CYAN } = require('../lib/logger')
+const { error, dim, info, warn, success, DIM, RESET, GREEN, YELLOW, CYAN } = require('../lib/logger')
 
 async function main() {
   const args = process.argv.slice(2)
@@ -19,27 +19,30 @@ async function main() {
   const filteredArgs = args.filter((a) => a !== '--dry-run')
   const [command, ...rest] = filteredArgs
 
-  const cccDir = discoverCccDir()
+  // help / update 不需要配置目录，按需延迟发现
+  function cccDir() {
+    return discoverCccDir()
+  }
 
   switch (command) {
     case undefined:
     case 'list':
-      cmdList(cccDir)
+      cmdList(cccDir())
       break
     case 'status':
-      cmdStatus(cccDir)
+      cmdStatus(cccDir())
       break
     case 'use':
-      await cmdUse(cccDir, rest[0], isDryRun)
+      await cmdUse(cccDir(), rest[0], isDryRun)
       break
     case 'save':
-      cmdSave(cccDir)
+      cmdSave(cccDir())
       break
     case 'update':
       await cmdUpdate()
       break
     case 'log':
-      cmdLog(cccDir)
+      cmdLog(cccDir())
       break
     case 'help':
     case '--help':
@@ -85,7 +88,7 @@ function cmdStatus(cccDir) {
     return
   }
   const settings = readConfigSettings(cccDir, state.active) || {}
-  const url = (settings.env || {}).ANTHROPIC_BASE_URL || ''
+  const { url } = extractConfigSummary(settings)
   const sep = ` ${DIM}·${RESET} `
   const parts = []
   // 激活符号 + 配置名
@@ -111,14 +114,22 @@ function cmdSave(cccDir) {
     process.exit(1)
   }
 
-  const content = fs.readFileSync(paths.claudeSettings, 'utf8')
+  const raw = fs.readFileSync(paths.claudeSettings, 'utf8')
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch (e) {
+    error(`${paths.claudeSettings} 不是有效的 JSON: ${e.message}`)
+    process.exit(1)
+  }
 
-  // 写入 configs/<active>/settings.json
-  fs.writeFileSync(paths.configSettings, content, 'utf8')
+  // 统一用 JSON.stringify 格式化写入，与 applyConfig 保持一致，避免虚假漂移
+  const normalized = JSON.stringify(parsed, null, 2) + '\n'
 
-  // 同步 last-applied 快照，消除漂移标记
+  fs.writeFileSync(paths.configSettings, normalized, 'utf8')
+
   fs.mkdirSync(path.dirname(paths.lastAppliedSettings), { recursive: true })
-  fs.writeFileSync(paths.lastAppliedSettings, content, 'utf8')
+  fs.writeFileSync(paths.lastAppliedSettings, normalized, 'utf8')
 
   success(`已保存到 ${CYAN}${state.active}${RESET}`)
 }
@@ -126,9 +137,7 @@ function cmdSave(cccDir) {
 // 配置摘要：在 list 和 use 完成后输出，提供关键上下文（不含代理，列表行已有）
 function printConfigSummary(cccDir, state) {
   const settings = readConfigSettings(cccDir, state.active) || {}
-  const env = settings.env || {}
-  const url = env.ANTHROPIC_BASE_URL || ''
-  const model = env.ANTHROPIC_DEFAULT_SONNET_MODEL || settings.model || ''
+  const { url, model } = extractConfigSummary(settings)
 
   const parts = []
   if (url) parts.push(url)
@@ -230,10 +239,12 @@ async function cmdUse(cccDir, query, isDryRun) {
   await applyConfig(cccDir, configName, isDryRun)
 }
 
-// 模糊匹配配置名，多个匹配时循环提示用户缩小范围
+// 模糊匹配配置名，多个匹配时循环提示用户缩小范围（最多 3 次）
 async function resolveConfig(cccDir, query) {
   const allConfigs = listConfigs(cccDir)
   let currentQuery = query
+  const maxRetries = 3
+  let retries = 0
 
   while (true) {
     const matches = filterConfigs(currentQuery, allConfigs)
@@ -246,6 +257,12 @@ async function resolveConfig(cccDir, query) {
 
     if (matches.length === 1) {
       return matches[0]
+    }
+
+    retries++
+    if (retries > maxRetries) {
+      error(`多次尝试后仍无法确定唯一配置，请使用完整名称`)
+      process.exit(1)
     }
 
     console.log(`\n  "${currentQuery}" 匹配到多个配置：`)
