@@ -1,21 +1,41 @@
 # claude-code-config-cli (ccc)
 
-零依赖 Node.js CLI，管理 Claude Code 配置文件切换（settings.json + 代理生命周期）。
+零运行时依赖的 TypeScript CLI，管理 Claude Code 配置文件切换（settings.json + 代理生命周期）。
 
 ## 项目结构
 
 ```
-bin/ccc.js          入口 + 命令实现（list / status / use）
-lib/
-  paths.js          所有路径计算，getPaths(cccDir, configName?) / ensureRuntimeDirs(cccDir)
-  discovery.js      CCC_DIR 自动发现（CCC_DIR env → ~/.ccc → ~/code/… → ~/space/…）
-  configs.js        listConfigs / readConfigSettings / hasProxy / extractLocalPort
-  fuzzy.js          fzf 风格子序列匹配，filterConfigs(query, names)
-  state.js          runtime/state.json 读写，isPidAlive(pid)
-  backup.js         hasDrift / createBackup（比对 last-applied vs 当前文件）
-  proxy.js          startProxy / stopProxy / waitForPort（net.createConnection 轮询）
-  apply.js          applyConfig(cccDir, configName, isDryRun) — 核心流程
-  logger.js         info / warn / error / success / dim / dryRun（内联 ANSI，无 chalk）
+src/
+  types.ts              所有共享类型定义
+  cli.ts                入口：参数解析 + 命令分发（Map<string, CommandHandler>）
+  commands/
+    index.ts            命令注册表
+    list.ts             ccc list（默认）
+    status.ts           ccc status
+    use.ts              ccc use <query>（含 resolveConfig + readline prompt）
+    save.ts             ccc save
+    update.ts           ccc update
+    log.ts              ccc log
+    help.ts             ccc help
+  lib/
+    paths.ts            getPaths（函数重载：Paths / ConfigPaths）、ensureRuntimeDirs
+    discovery.ts        CCC_DIR 自动发现（CCC_DIR env → ~/.ccc → ~/code/… → ~/space/…）
+    configs.ts          listConfigs / readConfigSettings / hasProxy / extractLocalPort / extractConfigSummary
+    fuzzy.ts            fzf 风格子序列匹配，filterConfigs(query, names)
+    state.ts            runtime/state.json 读写，isPidAlive(pid)
+    backup.ts           stableStringify / hasDrift / createBackup
+    proxy.ts            ProxyStartError / startProxy / stopProxy / waitForPort
+    apply.ts            applyConfig(cccDir, configName, isDryRun) — 核心流程
+    logger.ts           颜色常量 c + info / warn / error / success / dim / dryRun
+tests/
+  fuzzy.test.ts         fuzzyMatch / filterConfigs
+  backup.test.ts        stableStringify
+  configs.test.ts       extractLocalPort / extractConfigSummary
+  paths.test.ts         getPaths / ensureRuntimeDirs
+  state.test.ts         readState / writeState / isPidAlive
+  discovery.test.ts     discoverCccDir
+dist/                   tsup 构建输出（gitignored）
+  cli.js                单文件 CJS bundle，含 shebang
 ```
 
 ## 配置根目录
@@ -70,11 +90,20 @@ CCC_DRY_RUN=1 ccc use <query>
 
 ## 开发说明
 
-- CommonJS（`require`），无需构建，Node >= 18
-- `npm link` 已安装，全局命令 `ccc` 可用
+- TypeScript strict 模式，tsup 构建为单文件 CJS
+- `npm run build` 构建到 `dist/`，`npm run dev` 监听模式
+- `npm run check` 运行 typecheck + lint + test
+- `npm link` 安装全局命令 `ccc`（指向 `dist/cli.js`）
 - 需设置 `CCC_DIR` 或依赖自动发现 `~/space/claude-code-configs`
-- 无外部依赖，全部使用 Node.js 内置模块（fs / path / os / child_process / net / readline）
+- 零运行时依赖，全部使用 Node.js 内置模块
 - 所有提示文案和代码注释均为中文
+
+## 工具链
+
+- **TypeScript** — strict + noUncheckedIndexedAccess + exactOptionalPropertyTypes
+- **tsup** — esbuild 打包，CJS 输出，target node18
+- **Biome** — lint + format 一体化，配置见 `biome.json`
+- **node:test + node:assert** — Node 内置测试，零依赖，`node --test tests/*.test.ts`
 
 ## 发布流程
 
