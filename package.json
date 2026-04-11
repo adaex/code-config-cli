@@ -16,15 +16,30 @@
   },
   "homepage": "https://github.com/adaex/claude-code-config-cli",
   "bin": {
-    "ccc": "bin/ccc.js"
+    "ccc": "dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "format": "prettier --write \"bin/**/*.js\" \"lib/**/*.js\""
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "biome check src/ tests/",
+    "lint:fix": "biome check --fix src/ tests/",
+    "format": "biome format --write src/ tests/",
+    "format:check": "biome format src/ tests/",
+    "test": "node --experimental-transform-types --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "prepublishOnly": "npm run check && npm run build"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "@biomejs/biome": "^2.4.11",
+    "@types/node": "^25.6.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2"
   }
 }
