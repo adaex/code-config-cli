@@ -123,10 +123,11 @@ export async function applyConfig(cccDir: string, configName: string, isDryRun: 
 
         process.stdout.write(`${c.CYAN}◆${c.RESET} 等待代理就绪`)
         const portResult = await waitForPort(effectivePort, 10000)
+        console.log() // 换行，结束打点行
         if (portResult.ready) {
-          console.log(`  ${c.GREEN}✓${c.RESET}`)
+          success(`代理已就绪，端口 ${effectivePort}`)
         } else {
-          console.log(`  ${c.YELLOW}⚠ 10 秒内未响应${c.RESET}`)
+          warn(`代理 10 秒内未响应端口 ${effectivePort}`)
           dim(`查看日志：${result.logFile}`)
         }
       }
