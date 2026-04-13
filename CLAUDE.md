@@ -119,4 +119,4 @@ CCC_DRY_RUN=1 ccc use <query>
 2. 更新 `package.json` 中的 `version` 字段
 3. 提交所有变更（代码 + changelog + version）
 4. `git push origin main`
-5. `npm publish`（需要 OTP，向用户索取验证码）
+5. `npm publish`
