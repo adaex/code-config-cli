@@ -1,9 +1,10 @@
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import { ensureProxy } from '../lib/health.ts'
-import { c, dim, error, info, success, warn } from '../lib/logger.ts'
-import { ensureProxyDirs, getProxyPaths, listProxyNames, loadProxyDefinition } from '../lib/paths.ts'
+import { c, dim, error, info, showLogTail, success, warn } from '../lib/logger.ts'
+import { ensureProxyDirs, getProxyPaths, listProxyNames } from '../lib/paths.ts'
 import { ProxyStartError, startProxy, stopProxy, waitForPort } from '../lib/proxy.ts'
-import { isPidAlive, readProxyState, writeProxyState } from '../lib/state.ts'
+import { isPidAlive, readProxyState, resolvePort, writeProxyState } from '../lib/state.ts'
 import type { CommandContext } from '../types.ts'
 
 function resolveProxyName(name: string | undefined): string {
@@ -35,8 +36,7 @@ async function proxyInstall(name: string): Promise<void> {
   ensureProxyDirs(name)
   info(`安装代理 ${name}`)
 
-  const { execSync } = await import('node:child_process')
-  execSync(`bash "${p.installSh}"`, {
+  execFileSync('bash', [p.installSh], {
     stdio: 'inherit',
     cwd: p.dir,
   })
@@ -51,7 +51,6 @@ async function proxyInstall(name: string): Promise<void> {
 }
 
 async function proxyStart(name: string): Promise<void> {
-  const def = loadProxyDefinition(name)
   const state = readProxyState(name)
   const p = getProxyPaths(name)
 
@@ -65,8 +64,8 @@ async function proxyStart(name: string): Promise<void> {
     process.exit(1)
   }
 
-  ensureProxyDirs(name)
-  const port = state.port || def.defaultPort
+  const port = resolvePort(state)
+  if (!port) process.exit(1)
 
   try {
     const result = await startProxy(name, port)
@@ -86,23 +85,8 @@ async function proxyStart(name: string): Promise<void> {
 
     writeProxyState(name, { pid: result.pid, port, startedAt: new Date().toISOString() })
   } catch (e: unknown) {
-    const proxyErr = e instanceof ProxyStartError ? e : null
     error(e instanceof Error ? e.message : String(e))
-    if (proxyErr?.logFile) {
-      try {
-        const logContent = fs.readFileSync(proxyErr.logFile, 'utf8')
-        const lines = logContent.split('\n').filter((l) => l.length > 0)
-        const show = lines.slice(0, 20)
-        if (show.length) {
-          dim('─── 日志输出 ───')
-          for (const l of show) dim(l)
-          if (lines.length > 20) dim(`... 省略 ${lines.length - 20} 行，完整日志: ${proxyErr.logFile}`)
-          dim('────────────')
-        }
-      } catch {
-        /* 忽略 */
-      }
-    }
+    if (e instanceof ProxyStartError && e.logFile) showLogTail(e.logFile)
     process.exit(1)
   }
 }

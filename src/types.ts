@@ -1,7 +1,7 @@
 /** 代理运行时状态，持久化到 ~/.ccc/state/<name>.json */
 export interface ProxyState {
   pid: number | null
-  port: number
+  port: number | null
   startedAt: string | null
 }
 
@@ -17,12 +17,6 @@ export interface ProxyPaths {
   venvDir: string
   /** 日志目录：~/.ccc/logs/<name>/ */
   logsDir: string
-}
-
-/** 代理元数据（来自 proxy.json） */
-export interface ProxyDefinition {
-  name: string
-  defaultPort: number
 }
 
 /** startProxy 返回值 */

@@ -13,17 +13,11 @@ src/
     proxy.ts            ccc proxy start|stop|status|install [名称]
     help.ts             ccc help
   lib/
-    paths.ts            getProxyPaths / listProxyNames / loadProxyDefinition / ensureProxyDirs
-    state.ts            readProxyState / writeProxyState / isPidAlive
+    paths.ts            getProxyPaths / listProxyNames / ensureProxyDirs
+    state.ts            readProxyState / writeProxyState / isPidAlive / resolvePortFromEnv
     proxy.ts            ProxyStartError / startProxy / stopProxy / waitForPort
     health.ts           ensureProxy（自动重启）
     logger.ts           颜色常量 c + info / warn / error / success / dim / dryRun
-proxies/
-  coco/
-    proxy.json          代理元数据（名称、默认端口）
-    start.sh            后台启动脚本（接受 PORT 环境变量）
-    install.sh          安装脚本（创建 venv、安装依赖、复制配置）
-    config.yaml         LiteLLM 代理配置
 tests/
   paths.test.ts         getProxyPaths / listProxyNames
   state.test.ts         isPidAlive
@@ -33,15 +27,21 @@ dist/                   tsup 构建输出（gitignored）
 
 ## 运行时目录
 
-`~/.ccc/proxies/<名称>/`，结构：
+`~/.ccc/` 结构：
 
 ```
-~/.ccc/proxies/coco/
-  state.json            # { pid, port, startedAt }
-  config.yaml           # install 时从包内复制
-  .venv/                # install 时创建的 Python 虚拟环境
-  logs/
+~/.ccc/
+  proxies/coco/           # 代理配置（用户自行管理）
+    start.sh
+    install.sh
+    config.yaml
+    .venv/                # install 时创建的 Python 虚拟环境
+  state/
+    coco.json             # { pid, port, startedAt }
+  logs/coco/
     <时间戳>.log
+  backups/
+    proxies-<时间戳>.zip  # ccc backup 生成
 ```
 
 ## 命令
@@ -51,6 +51,8 @@ ccc proxy install [名称]   # 安装代理依赖（默认 coco）
 ccc proxy start [名称]     # 启动代理
 ccc proxy stop [名称]      # 停止代理
 ccc proxy status [名称]    # 查看状态（已停止则自动重启）
+ccc backup                 # 备份代理配置（排除 .venv）
+ccc update                 # 从 npm 更新到最新版本
 ccc help                   # 显示帮助信息
 ccc --version              # 显示版本号
 ```
@@ -58,25 +60,25 @@ ccc --version              # 显示版本号
 ## 代理管理流程
 
 ### install
-1. 创建 `~/.ccc/proxies/<名称>/` 和 `logs/` 目录
-2. 从包内 `proxies/<名称>/` 复制 `config.yaml`
-3. 执行 `install.sh`（创建 .venv、安装 litellm 等依赖）
+1. 创建 `~/.ccc/proxies/<名称>/` 和 `~/.ccc/logs/<名称>/` 目录
+2. 执行 `install.sh`（创建 .venv、安装 litellm 等依赖）
 
 ### start
-1. 检查是否已安装（.venv 和 config.yaml 存在）
+1. 检查是否已安装（.venv 存在）
 2. 若已运行则显示状态并退出
-3. `spawn('bash', [start.sh], { detached:true })` + `child.unref()`
-4. 写入 `state.json`（PID、端口、启动时间）
-5. `net.createConnection` 轮询端口，最多 10s
+3. 从 `ANTHROPIC_BASE_URL` 环境变量解析端口（非本地地址则报错退出）
+4. `spawn('bash', [start.sh], { detached:true })` + `child.unref()`
+5. 写入 `~/.ccc/state/<名称>.json`（PID、端口、启动时间）
+6. `net.createConnection` 轮询端口，最多 10s
 
 ### stop
-1. 读取 `state.json` 获取 PID
+1. 读取 `~/.ccc/state/<名称>.json` 获取 PID
 2. SIGTERM → 3×500ms 轮询 → SIGKILL → 3×200ms 轮询
-3. 更新 `state.json`
+3. 更新 state
 
 ### status
-1. 读取 `state.json`，检查 PID 存活
-2. 存活：显示状态行 `✓ coco · http://127.0.0.1:15432 · 代理运行中 (PID xxx)`
+1. 读取 state，检查 PID 存活
+2. 存活：显示状态行
 3. 死亡：自动重启（同 start 流程）
 
 ## 配置切换

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0] - 2026-04-14
+
+### Added
+- `ccc open` — 打开 ~/.ccc 目录
+
+### Changed
+- 移除 `proxy.json`，代理端口改为从 `ANTHROPIC_BASE_URL` 环境变量动态解析
+- 非本地地址或未设置环境变量时给出明确错误提示
+- `ProxyState.port` 改为 `number | null`，消除 `0` 哨兵值
+- 提取 `resolvePort` / `showLogTail` 共享函数，消除 proxy.ts 和 health.ts 间的重复代码
+- shell 命令改用 `execFileSync` 参数数组，避免字符串拼接
+
 ## [1.1.0] - 2026-04-14
 
 ### Added

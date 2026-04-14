@@ -1,8 +1,7 @@
-import fs from 'node:fs'
-import { c, dim, error, success, warn } from './logger.ts'
+import { c, dim, error, showLogTail, success, warn } from './logger.ts'
 import { ensureProxyDirs } from './paths.ts'
 import { ProxyStartError, startProxy, waitForPort } from './proxy.ts'
-import { isPidAlive, readProxyState, writeProxyState } from './state.ts'
+import { isPidAlive, readProxyState, resolvePort, writeProxyState } from './state.ts'
 
 export interface EnsureProxyResult {
   restarted: boolean
@@ -18,7 +17,9 @@ export async function ensureProxy(proxyName: string): Promise<EnsureProxyResult 
   const state = readProxyState(proxyName)
   if (state.pid !== null && isPidAlive(state.pid)) return null
 
-  const port = state.port
+  const port = resolvePort(state)
+  if (!port) return null
+
   ensureProxyDirs(proxyName)
 
   console.log()
@@ -42,25 +43,8 @@ export async function ensureProxy(proxyName: string): Promise<EnsureProxyResult 
     writeProxyState(proxyName, { pid: result.pid, port, startedAt: new Date().toISOString() })
     return { restarted: true, pid: result.pid, port }
   } catch (e: unknown) {
-    const proxyErr = e instanceof ProxyStartError ? e : null
     error(e instanceof Error ? e.message : String(e))
-    if (proxyErr?.logFile) {
-      try {
-        const logContent = fs.readFileSync(proxyErr.logFile, 'utf8')
-        const lines = logContent.split('\n').filter((l) => l.length > 0)
-        const show = lines.slice(0, 20)
-        if (show.length) {
-          dim('─── 日志输出 ───')
-          for (const l of show) {
-            dim(l)
-          }
-          if (lines.length > 20) dim(`... 省略 ${lines.length - 20} 行，完整日志: ${proxyErr.logFile}`)
-          dim('────────────')
-        }
-      } catch {
-        /* 日志文件不可读，忽略 */
-      }
-    }
+    if (e instanceof ProxyStartError && e.logFile) showLogTail(e.logFile)
     return null
   }
 }

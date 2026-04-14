@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+
 const RESET = '\x1b[0m'
 const BOLD = '\x1b[1m'
 const DIM = '\x1b[2m'
@@ -38,4 +40,21 @@ export function dot(): void {
 
 export function step(msg: string): void {
   console.log(`\n${msg}`)
+}
+
+/** 显示日志文件前 N 行（用于启动失败诊断） */
+export function showLogTail(logFile: string, maxLines = 20): void {
+  try {
+    const content = fs.readFileSync(logFile, 'utf8')
+    const lines = content.split('\n').filter((l) => l.length > 0)
+    const show = lines.slice(0, maxLines)
+    if (show.length) {
+      dim('─── 日志输出 ───')
+      for (const l of show) dim(l)
+      if (lines.length > maxLines) dim(`... 省略 ${lines.length - maxLines} 行，完整日志: ${logFile}`)
+      dim('────────────')
+    }
+  } catch {
+    /* 日志文件不可读，忽略 */
+  }
 }

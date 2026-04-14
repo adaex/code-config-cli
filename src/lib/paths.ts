@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type { ProxyDefinition, ProxyPaths } from '../types.ts'
+import type { ProxyPaths } from '../types.ts'
 
 /** ~/.ccc 基础目录 */
 export function cccHome(): string {
@@ -32,16 +32,6 @@ export function listProxyNames(): string[] {
     .filter((d) => d.isDirectory() && fs.existsSync(path.join(proxiesDir, d.name, 'start.sh')))
     .map((d) => d.name)
     .sort()
-}
-
-/** 读取代理元数据 */
-export function loadProxyDefinition(proxyName: string): ProxyDefinition {
-  const p = getProxyPaths(proxyName)
-  const jsonPath = path.join(p.dir, 'proxy.json')
-  if (!fs.existsSync(jsonPath)) {
-    return { name: proxyName, defaultPort: 15432 }
-  }
-  return JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as ProxyDefinition
 }
 
 /** 确保代理运行时目录存在 */
