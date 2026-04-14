@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0] - 2026-04-14
+
+### Added
+- `ccc --version` / `ccc -V` / `ccc version` — 显示当前版本号
+- 代理自动重启：`ccc` / `ccc list` / `ccc status` 检测到代理进程已停止时自动重启，无需手动 `ccc use`
+
 ## [0.5.0] - 2026-04-13
 
 ### Added

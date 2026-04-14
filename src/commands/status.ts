@@ -1,9 +1,10 @@
 import { extractConfigSummary, readConfigSettings } from '../lib/configs.ts'
+import { ensureProxy } from '../lib/health.ts'
 import { c } from '../lib/logger.ts'
 import { isPidAlive, readState } from '../lib/state.ts'
 import type { CommandContext } from '../types.ts'
 
-export function cmdStatus(ctx: CommandContext): void {
+export async function cmdStatus(ctx: CommandContext): Promise<void> {
   const cccDir = ctx.cccDir()
   const state = readState(cccDir)
   if (!state.active) {
@@ -16,8 +17,14 @@ export function cmdStatus(ctx: CommandContext): void {
   const parts: string[] = []
   parts.push(`${c.GREEN}✓${c.RESET} ${c.CYAN}${state.active}${c.RESET}`)
   if (url) parts.push(`${c.DIM}${url}${c.RESET}`)
+
+  const proxyAlive = state.proxyPid !== null && isPidAlive(state.proxyPid)
   if (state.proxyPid) {
-    parts.push(isPidAlive(state.proxyPid) ? `${c.GREEN}代理运行中${c.RESET}` : `${c.YELLOW}代理已停止${c.RESET}`)
+    parts.push(proxyAlive ? `${c.GREEN}代理运行中${c.RESET}` : `${c.YELLOW}代理已停止${c.RESET}`)
   }
   console.log(parts.join(sep))
+
+  if (!proxyAlive) {
+    await ensureProxy(cccDir)
+  }
 }
