@@ -17,7 +17,7 @@ export function getProxyPaths(proxyName: string): ProxyPaths {
     startSh: path.join(dir, 'start.sh'),
     installSh: path.join(dir, 'install.sh'),
     configYaml: path.join(dir, 'config.yaml'),
-    stateFile: path.join(dir, 'state.json'),
+    stateFile: path.join(home, 'state', `${proxyName}.json`),
     venvDir: path.join(dir, '.venv'),
     logsDir: path.join(home, 'logs', proxyName),
   })
@@ -46,7 +46,9 @@ export function loadProxyDefinition(proxyName: string): ProxyDefinition {
 
 /** 确保代理运行时目录存在 */
 export function ensureProxyDirs(proxyName: string): void {
+  const home = cccHome()
   const p = getProxyPaths(proxyName)
   fs.mkdirSync(p.dir, { recursive: true })
   fs.mkdirSync(p.logsDir, { recursive: true })
+  fs.mkdirSync(path.join(home, 'state'), { recursive: true })
 }

@@ -12,7 +12,7 @@ describe('getProxyPaths', () => {
     assert.strictEqual(p.startSh, path.join(home, '.ccc', 'proxies', 'coco', 'start.sh'))
     assert.strictEqual(p.installSh, path.join(home, '.ccc', 'proxies', 'coco', 'install.sh'))
     assert.strictEqual(p.configYaml, path.join(home, '.ccc', 'proxies', 'coco', 'config.yaml'))
-    assert.strictEqual(p.stateFile, path.join(home, '.ccc', 'proxies', 'coco', 'state.json'))
+    assert.strictEqual(p.stateFile, path.join(home, '.ccc', 'state', 'coco.json'))
     assert.strictEqual(p.venvDir, path.join(home, '.ccc', 'proxies', 'coco', '.venv'))
   })
 
@@ -20,6 +20,12 @@ describe('getProxyPaths', () => {
     const p = getProxyPaths('coco')
     const home = os.homedir()
     assert.strictEqual(p.logsDir, path.join(home, '.ccc', 'logs', 'coco'))
+  })
+
+  it('状态文件独立于代理目录', () => {
+    const p = getProxyPaths('coco')
+    const home = os.homedir()
+    assert.strictEqual(p.stateFile, path.join(home, '.ccc', 'state', 'coco.json'))
   })
 
   it('返回冻结对象', () => {

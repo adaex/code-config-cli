@@ -1,4 +1,4 @@
-/** 代理运行时状态，持久化到 ~/.ccc/proxies/<name>/state.json */
+/** 代理运行时状态，持久化到 ~/.ccc/state/<name>.json */
 export interface ProxyState {
   pid: number | null
   port: number
@@ -12,6 +12,7 @@ export interface ProxyPaths {
   startSh: string
   installSh: string
   configYaml: string
+  /** 状态文件：~/.ccc/state/<name>.json */
   stateFile: string
   venvDir: string
   /** 日志目录：~/.ccc/logs/<name>/ */

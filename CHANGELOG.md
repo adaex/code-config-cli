@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0] - 2026-04-14
+
+### Added
+- `ccc backup` — 备份 `~/.ccc/proxies/` 为 zip（排除 .venv），保存到 `~/.ccc/backups/` 并打开目录
+
+### Changed
+- 状态文件从 `~/.ccc/proxies/<名称>/state.json` 迁移到 `~/.ccc/state/<名称>.json`，代理目录只保留用户配置
+
 ## [1.0.1] - 2026-04-14
 
 ### Changed
