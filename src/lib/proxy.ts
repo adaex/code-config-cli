@@ -39,8 +39,7 @@ function tryConnect(port: number): Promise<boolean> {
   })
 }
 
-/** 轮询端口直到监听就绪，每 500ms 一次 */
-export async function waitForPort(port: number, timeoutMs = 10000): Promise<PortResult> {
+export async function waitForPort(port: number, timeoutMs = 10000, pid?: number): Promise<PortResult> {
   const deadline = Date.now() + timeoutMs
   let attempt = 0
   while (Date.now() < deadline) {
@@ -48,6 +47,9 @@ export async function waitForPort(port: number, timeoutMs = 10000): Promise<Port
     process.stdout.write('.')
     const connected = await tryConnect(port)
     if (connected) return { ready: true, attempts: attempt }
+    if (pid !== undefined && !isPidAlive(pid)) {
+      return { ready: false, attempts: attempt, exited: true }
+    }
     await sleep(500)
   }
   return { ready: false, attempts: attempt }

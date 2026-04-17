@@ -34,14 +34,18 @@ export async function ensureProxy(proxyName: string): Promise<EnsureProxyResult 
     dim(`PID ${result.pid}  日志 ${result.logFile}`)
 
     process.stdout.write(`${c.CYAN}◆${c.RESET} 等待代理就绪`)
-    const portResult = await waitForPort(port, 10000)
+    const portResult = await waitForPort(port, 10000, result.pid)
     console.log()
 
     if (portResult.ready) {
       proxyStatus(proxyName, port, result.pid, '代理已就绪')
     } else {
-      warn(`${proxyName} 未响应端口 ${port}（等待超时 10s）`)
-      dim(`查看日志：${result.logFile}`)
+      if (portResult.exited) {
+        warn(`${proxyName} 进程已退出`)
+      } else {
+        warn(`${proxyName} 未响应端口 ${port}（等待超时 10s）`)
+      }
+      showLogTail(result.logFile)
     }
 
     writeProxyState(proxyName, { pid: result.pid, port, startedAt: new Date().toISOString() })

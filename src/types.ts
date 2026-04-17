@@ -45,6 +45,7 @@ export interface StopResult {
 export interface PortResult {
   ready: boolean
   attempts: number
+  exited?: boolean
 }
 
 /** 命令处理函数签名 */
