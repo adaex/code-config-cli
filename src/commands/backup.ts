@@ -18,17 +18,23 @@ export function cmdBackup(_ctx: CommandContext): void {
   fs.mkdirSync(backupsDir, { recursive: true })
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  const zipPath = path.join(backupsDir, `proxies-${ts}.zip`)
+  const zipPath = path.join(backupsDir, `ccc-${ts}.zip`)
 
-  info('备份 ~/.ccc/proxies/ ...')
+  info('备份 ~/.ccc/proxies/ + *.zsh ...')
 
-  execFileSync('zip', ['-r', zipPath, '.', '-x', '*/.venv/*', '-x', '*/.venv'], { cwd: proxiesDir, stdio: 'pipe' })
+  const args = ['-r', zipPath, 'proxies', '-x', '*/.*']
+
+  const zshFiles = fs.readdirSync(home).filter((f) => f.endsWith('.zsh'))
+  for (const f of zshFiles) args.push(f)
+
+  execFileSync('zip', args, { cwd: home, stdio: 'pipe' })
 
   const sizeKb = Math.ceil(fs.statSync(zipPath).size / 1024)
 
   console.log()
   success(`备份完成：${zipPath} (${sizeKb} KB)`)
-  dim(`已排除：.venv`)
+  dim(`已排除：隐藏文件（.*）`)
+  if (zshFiles.length) dim(`已包含：${zshFiles.join('、')}`)
 
   execFileSync('open', [backupsDir])
 }

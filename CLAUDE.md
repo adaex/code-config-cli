@@ -10,16 +10,16 @@ src/
   cli.ts                入口：参数解析 + 命令分发（Map<string, CommandHandler>）
   commands/
     index.ts            命令注册表
-    proxy.ts            ccc proxy start|stop|status|install [名称]
+    proxy.ts            ccc proxy start|stop|use|install-litellm
     help.ts             ccc help
   lib/
-    paths.ts            getProxyPaths / listProxyNames / ensureProxyDirs
+    paths.ts            getProxyPaths / getLiteLLMPaths / listProxyNames / ensureProxyDirs / isLiteLLMInstalled
     state.ts            readProxyState / writeProxyState / isPidAlive / resolvePortFromEnv
     proxy.ts            ProxyStartError / startProxy / stopProxy / waitForPort
     health.ts           ensureProxy（自动重启）
     logger.ts           颜色常量 c + info / warn / error / success / dim / dryRun
 tests/
-  paths.test.ts         getProxyPaths / listProxyNames
+  paths.test.ts         getProxyPaths / getLiteLLMPaths
   state.test.ts         isPidAlive
 dist/                   tsup 构建输出（gitignored）
   cli.js                单文件 CJS bundle，含 shebang
@@ -31,55 +31,61 @@ dist/                   tsup 构建输出（gitignored）
 
 ```
 ~/.ccc/
-  proxies/coco/           # 代理配置（用户自行管理）
+  proxies/coco/             # 代理配置（用户自行管理）
     start.sh
-    install.sh
     config.yaml
-    .venv/                # install 时创建的 Python 虚拟环境
-  state/
-    coco.json             # { pid, port, startedAt }
-  logs/coco/
-    <时间戳>.log
   backups/
-    proxies-<时间戳>.zip  # ccc backup 生成
+    ccc-<时间戳>.zip        # ccc backup 生成（proxies + *.zsh，排除隐藏文件）
+  *.zsh                     # shell 配置函数
+  runtime/                  # 运行时数据（可安全删除重建）
+    litellm/                # 共享 LiteLLM 运行时
+      install.sh
+      .venv/
+    proxy-coco/             # 代理运行时（proxy- 前缀避免与 litellm 冲突）
+      state.json            # { pid, port, startedAt }
+      logs/
+        <时间戳>.log
 ```
 
 ## 命令
 
 ```bash
-ccc proxy install [名称]   # 安装代理依赖（默认 coco）
-ccc proxy start [名称]     # 启动代理
-ccc proxy stop [名称]      # 停止代理
-ccc proxy status [名称]    # 查看状态（已停止则自动重启）
-ccc backup                 # 备份代理配置（排除 .venv）
-ccc update                 # 从 npm 更新到最新版本
-ccc help                   # 显示帮助信息
-ccc --version              # 显示版本号
+ccc proxy install-litellm    # 安装共享 LiteLLM 依赖（需要 uv）
+ccc proxy use [名称]         # 确保代理运行（未启动则自动启动）
+ccc proxy start [名称]       # 启动代理
+ccc proxy stop [名称]        # 停止代理
+ccc backup                   # 备份代理配置（排除 .venv）
+ccc open                     # 打开 ~/.ccc 目录
+ccc update                   # 从 npm 更新到最新版本
+ccc help                     # 显示帮助信息
+ccc --version                # 显示版本号
 ```
 
 ## 代理管理流程
 
-### install
-1. 创建 `~/.ccc/proxies/<名称>/` 和 `~/.ccc/logs/<名称>/` 目录
-2. 执行 `install.sh`（创建 .venv、安装 litellm 等依赖）
+### install-litellm
+1. 创建 `~/.ccc/runtime/litellm/` 目录
+2. 生成 `install.sh`（uv venv + uv pip install litellm[proxy] httpx[socks]）
+3. 执行 `install.sh`
+4. 验证 `litellm` 可执行文件存在
 
 ### start
-1. 检查是否已安装（.venv 存在）
+1. 检查共享 LiteLLM 是否已安装
 2. 若已运行则显示状态并退出
 3. 从 `ANTHROPIC_BASE_URL` 环境变量解析端口（非本地地址则报错退出）
-4. `spawn('bash', [start.sh], { detached:true })` + `child.unref()`
-5. 写入 `~/.ccc/state/<名称>.json`（PID、端口、启动时间）
+4. `spawn('bash', [start.sh], { detached:true })`，PATH 中注入 litellm binDir
+5. 写入 `~/.ccc/runtime/proxy-<名称>/state.json`（PID、端口、启动时间）
 6. `net.createConnection` 轮询端口，最多 10s
 
 ### stop
-1. 读取 `~/.ccc/state/<名称>.json` 获取 PID
+1. 读取 `~/.ccc/runtime/proxy-<名称>/state.json` 获取 PID
 2. SIGTERM → 3×500ms 轮询 → SIGKILL → 3×200ms 轮询
 3. 更新 state
 
-### status
-1. 读取 state，检查 PID 存活
-2. 存活：显示状态行
-3. 死亡：自动重启（同 start 流程）
+### use
+1. 检查共享 LiteLLM 是否已安装
+2. 已运行：显示状态行
+3. 未运行：自动重启（同 start 流程）
 
 ## 配置切换
 

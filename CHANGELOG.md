@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0] - 2026-04-17
+
+### Changed
+- 运行时数据（state、logs、litellm）统一迁移到 `~/.ccc/runtime/` 目录
+- 每个代理的 state 和 logs 按代理分组：`runtime/proxy-<名称>/state.json` + `runtime/proxy-<名称>/logs/`
+- 代理运行时目录使用 `proxy-` 前缀，与 `litellm/` 隔离命名空间
+- `ccc backup` 打包范围从仅 `proxies/` 扩展为 `proxies/ + *.zsh`
+- `ccc backup` 排除规则从 `.venv` 改为所有隐藏文件（`.*`）
+- 备份文件名从 `proxies-<时间戳>.zip` 改为 `ccc-<时间戳>.zip`
+
 ## [1.3.0] - 2026-04-15
 
 ### Changed

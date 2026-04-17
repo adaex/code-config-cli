@@ -1,5 +1,5 @@
 import { c, dim, error, proxyStatus, showLogTail, warn } from './logger.ts'
-import { ensureProxyDirs } from './paths.ts'
+import { ensureProxyDirs, isLiteLLMInstalled } from './paths.ts'
 import { ProxyStartError, startProxy, waitForPort } from './proxy.ts'
 import { isPidAlive, readProxyState, resolvePort, writeProxyState } from './state.ts'
 
@@ -19,6 +19,11 @@ export async function ensureProxy(proxyName: string): Promise<EnsureProxyResult 
 
   const port = resolvePort(state)
   if (!port) return null
+
+  if (!isLiteLLMInstalled()) {
+    error('共享 LiteLLM 未安装，请先执行 ccc proxy install-litellm')
+    return null
+  }
 
   ensureProxyDirs(proxyName)
 

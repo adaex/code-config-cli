@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import type { PortResult, ProxyStartResult, StopResult } from '../types.ts'
-import { ensureProxyDirs, getProxyPaths } from './paths.ts'
+import { ensureProxyDirs, getLiteLLMPaths, getProxyPaths } from './paths.ts'
 import { isPidAlive } from './state.ts'
 
 function sleep(ms: number): Promise<void> {
@@ -64,10 +64,15 @@ export function startProxy(proxyName: string, port: number): Promise<ProxyStartR
     const logFd = fs.openSync(logFile, 'a')
     let settled = false
 
+    const litellm = getLiteLLMPaths()
     const child = spawn('bash', [p.startSh], {
       detached: true,
       stdio: ['ignore', logFd, logFd],
-      env: { ...process.env, PORT: String(port) },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        PATH: `${litellm.binDir}:${process.env.PATH ?? ''}`,
+      },
       cwd: p.dir,
     })
 
