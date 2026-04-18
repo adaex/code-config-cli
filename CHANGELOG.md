@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.6.0] - 2026-04-18
+
+### Fixed
+- `ccc backup` 中 zip 命令 `-x` 选项位置错误，导致 `.zsh` 文件被当作排除模式而非要包含的文件
+
+### Changed
+- `ccc backup` 扩展备份范围：默认包含 `~/.claude/settings.json` 和 `~/.codex/config.toml`
+- `ccc backup` zip 内路径从隐藏路径（`.ccc/`、`.claude/`、`.codex/`）改为可见路径（`ccc/`、`claude/`、`codex/`），解压后 `ls` 可直接看到
+- `ccc backup` 自动排除隐藏文件（`.DS_Store` 等）和虚拟环境（`.venv`）
+
 ## [1.5.0] - 2026-04-17
 
 ### Changed
