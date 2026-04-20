@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.1] - 2026-04-20
+
+### Changed
+- `ccc backup` 重构：提取 `stageOptionalFile` 消除重复代码，用 `os.homedir()` 替代 `path.dirname(cccHome())`，移除冗余 `existsSync` 检查
+
 ## [1.6.0] - 2026-04-18
 
 ### Fixed

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { dim, error, info, success } from '../lib/logger.ts'
 import { cccHome } from '../lib/paths.ts'
@@ -21,9 +22,17 @@ function copyDir(src: string, dst: string, exclude: string[] = []): void {
   }
 }
 
+function stageOptionalFile(src: string, tmpDir: string, label: string, included: string[]): void {
+  if (!fs.existsSync(src)) return
+  const dstDir = path.join(tmpDir, path.dirname(label))
+  fs.mkdirSync(dstDir, { recursive: true })
+  fs.copyFileSync(src, path.join(tmpDir, label))
+  included.push(label)
+}
+
 export function cmdBackup(_ctx: CommandContext): void {
   const cccDir = cccHome()
-  const home = path.dirname(cccDir)
+  const home = os.homedir()
   const proxiesDir = path.join(cccDir, 'proxies')
 
   if (!fs.existsSync(proxiesDir)) {
@@ -43,6 +52,8 @@ export function cmdBackup(_ctx: CommandContext): void {
   const included: string[] = []
 
   try {
+    info('备份配置文件 ...')
+
     const tmpCcc = path.join(tmpDir, 'ccc')
     fs.mkdirSync(tmpCcc)
 
@@ -55,34 +66,18 @@ export function cmdBackup(_ctx: CommandContext): void {
       included.push(`ccc/${f}`)
     }
 
-    const claudeSettings = path.join(home, '.claude', 'settings.json')
-    if (fs.existsSync(claudeSettings)) {
-      const tmpClaude = path.join(tmpDir, 'claude')
-      fs.mkdirSync(tmpClaude, { recursive: true })
-      fs.copyFileSync(claudeSettings, path.join(tmpClaude, 'settings.json'))
-      included.push('claude/settings.json')
-    }
-
-    const codexConfig = path.join(home, '.codex', 'config.toml')
-    if (fs.existsSync(codexConfig)) {
-      const tmpCodex = path.join(tmpDir, 'codex')
-      fs.mkdirSync(tmpCodex, { recursive: true })
-      fs.copyFileSync(codexConfig, path.join(tmpCodex, 'config.toml'))
-      included.push('codex/config.toml')
-    }
-
-    info('备份配置文件 ...')
+    stageOptionalFile(path.join(home, '.claude', 'settings.json'), tmpDir, 'claude/settings.json', included)
+    stageOptionalFile(path.join(home, '.codex', 'config.toml'), tmpDir, 'codex/config.toml', included)
 
     const args = ['-r', zipPath, 'ccc']
-    if (fs.existsSync(path.join(tmpDir, 'claude'))) args.push('claude')
-    if (fs.existsSync(path.join(tmpDir, 'codex'))) args.push('codex')
+    if (included.some((i) => i.startsWith('claude/'))) args.push('claude')
+    if (included.some((i) => i.startsWith('codex/'))) args.push('codex')
 
     execFileSync('zip', args, { cwd: tmpDir, stdio: 'pipe' })
 
     const sizeKb = Math.ceil(fs.statSync(zipPath).size / 1024)
 
-    console.log()
-    success(`备份完成：${zipPath} (${sizeKb} KB)`)
+    success(`\n备份完成：${zipPath} (${sizeKb} KB)`)
     dim('已排除：隐藏文件（.*）、虚拟环境（.venv）')
     dim(`已包含：${included.join('、')}`)
     dim('恢复方法：解压后手动复制到对应位置')
