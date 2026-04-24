@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.3] - 2026-04-25
+
+### Changed
+- `ccc backup` 文件名进一步简化：`ccc-backup-YYMMDD-HHMM.zip`
+
 ## [1.6.2] - 2026-04-22
 
 ### Changed
