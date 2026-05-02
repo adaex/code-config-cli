@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
-import net from 'node:net'
 import path from 'node:path'
 import type { PortResult, ProxyStartResult, StopResult } from '../types.ts'
+import { tcpConnect } from './network.ts'
 import { ensureProxyDirs, getLiteLLMPaths, getProxyPaths } from './paths.ts'
 import { isPidAlive } from './state.ts'
 
@@ -20,32 +20,13 @@ export class ProxyStartError extends Error {
   }
 }
 
-/** 尝试连接端口，成功返回 true */
-function tryConnect(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = net.createConnection({ port, host: '127.0.0.1' })
-    socket.setTimeout(400)
-    socket.on('connect', () => {
-      socket.destroy()
-      resolve(true)
-    })
-    socket.on('error', () => {
-      resolve(false)
-    })
-    socket.on('timeout', () => {
-      socket.destroy()
-      resolve(false)
-    })
-  })
-}
-
 export async function waitForPort(port: number, timeoutMs = 10000, pid?: number): Promise<PortResult> {
   const deadline = Date.now() + timeoutMs
   let attempt = 0
   while (Date.now() < deadline) {
     attempt++
     process.stdout.write('.')
-    const connected = await tryConnect(port)
+    const connected = await tcpConnect('127.0.0.1', port, 400)
     if (connected) return { ready: true, attempts: attempt }
     if (pid !== undefined && !isPidAlive(pid)) {
       return { ready: false, attempts: attempt, exited: true }
