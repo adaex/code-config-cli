@@ -1,23 +1,13 @@
 import fs from 'node:fs'
-import type { CommandContext, ProxyState } from '../types.ts'
 import { c, dim, error, info, proxyStatus, showLogTail, success, warn } from '../lib/logger.ts'
-import {
-  checkMihomo,
-  extractHostPort,
-  getSystemProxy,
-  httpRequest,
-  tcpConnect,
-  tcpConnectViaProxy,
-} from '../lib/network.ts'
+import { checkMihomo, extractHostPort, getSystemProxy, httpRequest, tcpConnect, tcpConnectViaProxy } from '../lib/network.ts'
 import { getProxyPaths, isLiteLLMInstalled, listProxyNames } from '../lib/paths.ts'
 import { ProxyStartError, startProxy, stopProxy, waitForPort } from '../lib/proxy.ts'
 import { isPidAlive, readProxyState, resolvePort, writeProxyState } from '../lib/state.ts'
 import { parseModelList } from '../lib/yaml.ts'
+import type { CommandContext, ProxyState } from '../types.ts'
 
-type ConnectivityResult =
-  | { status: 'direct' }
-  | { status: 'via-proxy'; proxyUrl: string }
-  | { status: 'unreachable' }
+type ConnectivityResult = { status: 'direct' } | { status: 'via-proxy'; proxyUrl: string } | { status: 'unreachable' }
 
 export async function cmdDoctor(ctx: CommandContext): Promise<void> {
   const names = listProxyNames()
@@ -38,9 +28,7 @@ export async function cmdDoctor(ctx: CommandContext): Promise<void> {
       }
     }
     if (!target) {
-      target = names
-        .map((n) => ({ name: n, port: states.get(n)!.port ?? Number.MAX_SAFE_INTEGER }))
-        .sort((a, b) => a.port - b.port)[0]!.name
+      target = names.map((n) => ({ name: n, port: states.get(n)!.port ?? Number.MAX_SAFE_INTEGER })).sort((a, b) => a.port - b.port)[0]!.name
     }
   }
 
@@ -88,9 +76,7 @@ async function diagnoseProxy(proxyName: string): Promise<void> {
   const proc = await checkProxyProcess(proxyName)
   if (!proc.alive || proc.port === null) {
     info(`正在启动代理 ${c.CYAN}${proxyName}${c.RESET}…`)
-    const started = await withProxyEnv(proxyUrl, () =>
-      restartProxy(proxyName, proc.state),
-    )
+    const started = await withProxyEnv(proxyUrl, () => restartProxy(proxyName, proc.state))
     if (!started) return
 
     console.log()
@@ -104,9 +90,7 @@ async function diagnoseProxy(proxyName: string): Promise<void> {
   if (modelResult === 'all-fail' && proxyUrl) {
     console.log()
     info('上游通过代理可达但模型全部失败，尝试重启代理…')
-    const restarted = await withProxyEnv(proxyUrl, () =>
-      restartProxy(proxyName, proc.state),
-    )
+    const restarted = await withProxyEnv(proxyUrl, () => restartProxy(proxyName, proc.state))
     if (restarted) {
       console.log()
       await testModels(restarted.port, models)
@@ -186,9 +170,7 @@ async function diagnoseMihomoAndReport(): Promise<void> {
   dim('请检查节点是否可用，或尝试切换到其他节点')
 }
 
-async function checkProxyProcess(
-  proxyName: string,
-): Promise<{ alive: boolean; port: number | null; state: ProxyState }> {
+async function checkProxyProcess(proxyName: string): Promise<{ alive: boolean; port: number | null; state: ProxyState }> {
   const state = readProxyState(proxyName)
 
   if (state.pid === null || !isPidAlive(state.pid)) {
@@ -211,10 +193,7 @@ async function checkProxyProcess(
   return { alive: true, port: state.port, state }
 }
 
-async function testModels(
-  port: number,
-  models: Array<{ modelName: string; apiBase: string }>,
-): Promise<'all-pass' | 'all-fail' | 'partial'> {
+async function testModels(port: number, models: Array<{ modelName: string; apiBase: string }>): Promise<'all-pass' | 'all-fail' | 'partial'> {
   info('测试模型对话…')
   const failures: Array<{ model: string; err: string }> = []
 

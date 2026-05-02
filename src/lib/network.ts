@@ -31,12 +31,7 @@ export function getSystemProxy(): string | null {
   return process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || null
 }
 
-export function tcpConnectViaProxy(
-  proxyUrl: string,
-  targetHost: string,
-  targetPort: number,
-  timeoutMs = 5000,
-): Promise<boolean> {
+export function tcpConnectViaProxy(proxyUrl: string, targetHost: string, targetPort: number, timeoutMs = 5000): Promise<boolean> {
   return new Promise((resolve) => {
     const proxy = new URL(proxyUrl)
     const proxyPort = proxy.port ? Number.parseInt(proxy.port, 10) : 1080
